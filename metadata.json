@@ -1,0 +1,14 @@
+{
+  "name": "PatternLab – Générateur MIDI & Séquenceur",
+  "description": "Un prototype web pour la génération MIDI et le séquençage de batterie. Créez des motifs rythmiques, générez des mélodies basées sur des styles et exportez-les en fichiers .mid compatibles DAW.",
+  "keywords": [
+    "musique",
+    "midi",
+    "séquenceur",
+    "audio",
+    "générateur",
+    "react",
+    "typescript"
+  ],
+  "requestFramePermissions": []
+}
