@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PatternLab – Générateur MIDI</title>
+    <title>Pattern Lab – Générateur MIDI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,14 +13,15 @@
         font-family: 'Inter', sans-serif;
         background-color: #111111;
         color: #e5e5e5;
+        overflow-x: hidden;
       }
       .font-mono {
         font-family: 'Roboto Mono', monospace;
       }
-      /* Custom Scrollbar for dark theme */
+      /* Custom Scrollbar */
       ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
       }
       ::-webkit-scrollbar-track {
         background: #1f2937; 
@@ -31,6 +32,16 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #6b7280; 
+      }
+      /* Touch optimization */
+      @media (max-width: 1024px) {
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
       }
     </style>
   <script type="importmap">
