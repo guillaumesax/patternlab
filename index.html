@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Pattern Lab – Générateur MIDI</title>
 
-    <!-- iOS / Home Screen icon (place the file at: public/apple-touch-icon.png) -->
+    <!-- iOS / Home Screen icon (fichier à mettre dans: public/apple-touch-icon.png) -->
     <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="%BASE_URL%apple-touch-icon.png" />
 
@@ -32,7 +32,6 @@
       .font-mono {
         font-family: "Roboto Mono", monospace;
       }
-      /* Custom Range Input Standard */
       input[type="range"]::-webkit-slider-thumb {
         -webkit-appearance: none;
         height: 24px;
@@ -50,13 +49,11 @@
         background: #2d3748;
         border-radius: 10px;
       }
-      /* Hide arrows on numeric selects */
       select {
         -webkit-appearance: none;
         -moz-appearance: none;
         appearance: none;
       }
-      /* Custom Scrollbar for all */
       ::-webkit-scrollbar {
         width: 4px;
         height: 4px;
@@ -84,14 +81,14 @@
       }
     </script>
 
-    <!-- IMPORTANT (Vite): keep root paths for entry files -->
-    <link rel="stylesheet" href="/index.css" />
+    <!-- IMPORTANT: chemins relatifs (fonctionne sous /patternlab/) -->
+    <link rel="stylesheet" href="./index.css" />
   </head>
 
   <body>
     <div id="root"></div>
 
-    <!-- IMPORTANT (Vite): keep root paths for entry files -->
-    <script type="module" src="/index.tsx"></script>
+    <!-- IMPORTANT: chemins relatifs (fonctionne sous /patternlab/) -->
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
