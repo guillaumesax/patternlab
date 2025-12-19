@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
-  Play, Square, Download, RefreshCw, 
-  Music, Grid3X3, Sliders, Volume2, Trash2, Plus, X, ListMusic, ChevronDown,
+  Play, Square, Download, 
+  Music, Volume2, Trash2, Plus, X, ListMusic, ChevronDown,
   FlaskConical
 } from 'lucide-react';
 
@@ -41,15 +41,6 @@ const DRUM_TRACKS: DrumTrack[] = [
   { id: 2, name: 'HATS FERMÉ', audioKey: 'Hi-Hat Closed', midiNote: 42, color: 'bg-orange-600' },
   { id: 3, name: 'HATS OUVERT', audioKey: 'Hi-Hat Open', midiNote: 46, color: 'bg-yellow-500' },
 ];
-
-const SCALES: Record<string, number[]> = {
-  'Majeur': [0, 2, 4, 5, 7, 9, 11],
-  'Mineur': [0, 2, 3, 5, 7, 8, 10],
-  'Dorien': [0, 2, 3, 5, 7, 9, 10],
-  'Phrygien': [0, 1, 3, 5, 7, 8, 10],
-  'Lydien': [0, 2, 4, 6, 7, 9, 11],
-  'Mixolydien': [0, 2, 4, 5, 7, 9, 10],
-};
 
 const CHORD_TYPES: Record<string, number[]> = {
   'Majeur': [0, 4, 7], 'Mineur': [0, 3, 7], '7': [0, 4, 7, 10], 'Maj7': [0, 4, 7, 11],
@@ -135,16 +126,6 @@ class AudioEngine {
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'lowpass'; filter.frequency.value = 1200;
       osc.connect(filter); filter.connect(gain);
-    } else if (instr === 'bass') {
-      osc.type = 'sawtooth';
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass'; filter.frequency.setValueAtTime(400, time);
-      osc.connect(filter); filter.connect(gain);
-    } else if (instr === 'lead') {
-      osc.type = 'square';
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass'; filter.frequency.value = 1500;
-      osc.connect(filter); filter.connect(gain);
     } else {
       osc.type = 'triangle'; osc.connect(gain);
     }
@@ -164,8 +145,8 @@ const audio = new AudioEngine();
  * ==========================================
  */
 
-const Select = ({ label, value, options, onChange }: any) => (
-  <div className="mb-4 w-full">
+const Select = ({ label, value, options, onChange, className = "" }: any) => (
+  <div className={`w-full ${className}`}>
     {label && <label className="block text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-2">{label}</label>}
     <div className="relative">
       <select
@@ -217,7 +198,7 @@ const Button = ({ children, onClick, variant = 'primary', icon: Icon, className 
 const App = () => {
   const [tempo, setTempo] = useState(120);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [activeTab, setActiveTab] = useState<'drums' | 'pattern' | 'chords'>('drums');
+  const [activeTab, setActiveTab] = useState<'drums' | 'chords'>('drums');
   
   // Batterie
   const [drumBars, setDrumBars] = useState(1);
@@ -233,14 +214,6 @@ const App = () => {
   const [newChordRoot, setNewChordRoot] = useState('C');
   const [newChordType, setNewChordType] = useState('Majeur');
 
-  // Motifs
-  const [style, setStyle] = useState('Lo-Fi');
-  const [instrument, setInstrument] = useState('Basse');
-  const [keyRoot, setKeyRoot] = useState('C');
-  const [lengthBars, setLengthBars] = useState(1);
-  const [density, setDensity] = useState(50);
-  const [generatedNotes, setGeneratedNotes] = useState<Note[]>([]);
-
   const [currentStep, setCurrentStep] = useState(0);
   const nextNoteTimeRef = useRef(0);
   const stepRef = useRef(0);
@@ -251,18 +224,12 @@ const App = () => {
   const chordProgressionRef = useRef(chordProgression);
   const drumGridRef = useRef(drumGrid);
   const drumBarsRef = useRef(drumBars);
-  const generatedNotesRef = useRef(generatedNotes);
-  const lengthBarsRef = useRef(lengthBars);
-  const instrumentRef = useRef(instrument);
 
   useEffect(() => { tempoRef.current = tempo; }, [tempo]);
   useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
   useEffect(() => { chordProgressionRef.current = chordProgression; }, [chordProgression]);
   useEffect(() => { drumGridRef.current = drumGrid; }, [drumGrid]);
   useEffect(() => { drumBarsRef.current = drumBars; }, [drumBars]);
-  useEffect(() => { generatedNotesRef.current = generatedNotes; }, [generatedNotes]);
-  useEffect(() => { lengthBarsRef.current = lengthBars; }, [lengthBars]);
-  useEffect(() => { instrumentRef.current = instrument; }, [instrument]);
 
   useEffect(() => {
     const targetSteps = drumBars * 16;
@@ -273,38 +240,6 @@ const App = () => {
       return newRow;
     }));
   }, [drumBars]);
-
-  const generatePatternLogic = useCallback(() => {
-    const notes: Note[] = [];
-    const rootBase = NOTES_NAMES.indexOf(keyRoot);
-    const rootNote = rootBase + (instrument === 'Basse' ? 36 : 60);
-    const scaleName = style === 'Pop' ? 'Majeur' : style === 'Jazz' ? 'Dorien' : style === 'Funk' ? 'Mixolydien' : 'Mineur';
-    const scaleIntervals = SCALES[scaleName] || SCALES['Mineur'];
-    
-    const getPitch = (degree: number) => {
-      const oct = Math.floor(degree / 7);
-      const idx = ((degree % 7) + 7) % 7;
-      return rootNote + (oct * 12) + scaleIntervals[idx];
-    };
-
-    const totalSteps = lengthBars * 16;
-    if (instrument === 'Basse') {
-      for (let i = 0; i < totalSteps; i++) {
-        if (i % 8 === 0 || (i % 8 === 6 && Math.random() > 0.5) || Math.random() * 100 < density * 0.2) {
-          notes.push({ pitch: getPitch(0), startTime: i, duration: 2, velocity: 100 });
-        }
-      }
-    } else {
-      let curDegree = 0;
-      for (let i = 0; i < totalSteps; i += 2) {
-        if (Math.random() * 100 < density) {
-          curDegree += Math.floor(Math.random() * 3) - 1;
-          notes.push({ pitch: getPitch(curDegree), startTime: i, duration: 2, velocity: 90 });
-        }
-      }
-    }
-    setGeneratedNotes(notes);
-  }, [style, instrument, keyRoot, lengthBars, density]);
 
   const togglePlay = async () => {
     if (!isPlaying) {
@@ -326,12 +261,6 @@ const App = () => {
         DRUM_TRACKS.forEach((track, i) => {
           if (drumGridRef.current[i][step]) audio.playDrum(track.audioKey, nextNoteTimeRef.current);
         });
-      } else if (activeTabRef.current === 'pattern') {
-        const notesToPlay = generatedNotesRef.current.filter(n => n.startTime === step);
-        const instrType = instrumentRef.current === 'Basse' ? 'bass' : 'lead';
-        notesToPlay.forEach(n => {
-          audio.playNote(n, nextNoteTimeRef.current, instrType, n.duration * secondsPerStep);
-        });
       } else if (activeTabRef.current === 'chords') {
         if (chordProgressionRef.current.length > 0 && step % 16 === 0) {
           const barIndex = Math.floor(step / 16) % chordProgressionRef.current.length;
@@ -350,7 +279,6 @@ const App = () => {
       nextNoteTimeRef.current += secondsPerStep;
       let maxSteps = 16;
       if (activeTabRef.current === 'drums') maxSteps = drumBarsRef.current * 16;
-      else if (activeTabRef.current === 'pattern') maxSteps = lengthBarsRef.current * 16;
       else if (activeTabRef.current === 'chords') maxSteps = chordProgressionRef.current.length * 16;
       
       stepRef.current = (stepRef.current + 1) % (maxSteps || 16);
@@ -366,10 +294,6 @@ const App = () => {
     } else if (timerIDRef.current) window.clearTimeout(timerIDRef.current);
     return () => { if (timerIDRef.current) window.clearTimeout(timerIDRef.current); };
   }, [isPlaying, scheduler]);
-
-  useEffect(() => {
-    generatePatternLogic();
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-gray-200 flex flex-col font-sans overflow-x-hidden">
@@ -394,29 +318,38 @@ const App = () => {
       <main className="flex-1 flex flex-col overflow-y-auto pb-10">
         <div className="px-4 pt-6 pb-2">
           <div className="bg-[#161b22] p-6 rounded-2xl border border-gray-800/50 shadow-2xl">
-            <div className="flex items-center gap-8">
-              <button 
-                onClick={togglePlay}
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isPlaying ? 'bg-red-600 shadow-red-600/30' : 'bg-cyan-500 shadow-cyan-500/30'} active:scale-90`}
-              >
-                {isPlaying ? <Square fill="white" size={22} className="text-white"/> : <Play fill="white" className="ml-1 text-white" size={26}/>}
-              </button>
-              <div className="flex-1">
-                <div className="flex items-baseline justify-between mb-2">
-                  <span className="text-4xl font-bold text-white tracking-tight">{tempo}</span>
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">BPM</span>
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center gap-8">
+                <button 
+                  onClick={togglePlay}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${isPlaying ? 'bg-red-600 shadow-red-600/30' : 'bg-cyan-500 shadow-cyan-500/30'} active:scale-90`}
+                >
+                  {isPlaying ? <Square fill="white" size={22} className="text-white"/> : <Play fill="white" className="ml-1 text-white" size={26}/>}
+                </button>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="text-4xl font-bold text-white tracking-tight">{tempo}</span>
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">BPM</span>
+                  </div>
+                  <Slider value={tempo} min={60} max={180} onChange={setTempo} />
                 </div>
-                <Slider value={tempo} min={60} max={180} onChange={setTempo} />
               </div>
+              
+              <Button 
+                variant="secondary" 
+                className="w-full bg-[#1a212c] text-white py-3.5 border border-gray-700/30 hover:border-cyan-500/30 transition-colors" 
+                icon={Download}
+              >
+                Exporter en MIDI
+              </Button>
             </div>
           </div>
         </div>
 
-        <div className="px-4 mt-6">
+        <div className="px-4 mt-6 space-y-4">
           <div className="flex bg-[#161b22] p-1.5 rounded-xl border border-gray-800/50">
             {[
               { id: 'drums', label: 'Batterie', icon: Volume2, color: 'text-cyan-400' },
-              { id: 'pattern', label: 'Motifs', icon: Grid3X3, color: 'text-indigo-400' },
               { id: 'chords', label: 'Accords', icon: ListMusic, color: 'text-emerald-400' }
             ].map(tab => (
               <button
@@ -428,6 +361,36 @@ const App = () => {
               </button>
             ))}
           </div>
+
+          {activeTab === 'drums' && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <Select 
+                label="Nombre de mesures batterie" 
+                value={drumBars} 
+                options={[1, 2, 4]} 
+                onChange={(v:any) => setDrumBars(Number(v))} 
+                className="mb-0"
+              />
+            </div>
+          )}
+
+          {activeTab === 'chords' && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4 bg-[#161b22]/50 p-4 rounded-xl border border-gray-800/30">
+              <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Ajouter un accord</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <Select label="Fondamentale" value={newChordRoot} options={NOTES_NAMES} onChange={setNewChordRoot} className="mb-0" />
+                <Select label="Type" value={newChordType} options={Object.keys(CHORD_TYPES)} onChange={setNewChordType} className="mb-0" />
+              </div>
+              <Button 
+                onClick={() => setChordProgression([...chordProgression, { id: Date.now(), root: newChordRoot, type: newChordType, name: `${newChordRoot} ${newChordType}` }])} 
+                variant="success" 
+                className="w-full" 
+                icon={Plus}
+              >
+                Ajouter à la Progression
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="px-4 mt-8 flex-1">
@@ -478,28 +441,6 @@ const App = () => {
               </div>
             </div>
           )}
-
-          {activeTab === 'pattern' && (
-            <div className="flex flex-col h-full gap-4">
-              <div className="h-48 bg-[#161b22] rounded-2xl border border-gray-800/50 relative overflow-hidden shadow-inner">
-                {isPlaying && (
-                  <div className="absolute top-0 bottom-0 w-[2px] bg-red-500 z-10 transition-all duration-75" 
-                       style={{ left: `${(currentStep / (lengthBars * 16)) * 100}%` }} />
-                )}
-                <div className="absolute inset-0 m-4">
-                  {generatedNotes.map((note, idx) => {
-                    const minP = Math.min(...generatedNotes.map(n => n.pitch)) - 2;
-                    const maxP = Math.max(...generatedNotes.map(n => n.pitch)) + 2;
-                    const pRange = (maxP - minP) || 12;
-                    const top = 100 - ((note.pitch - minP) / pRange) * 100;
-                    const left = (note.startTime / (lengthBars * 16)) * 100;
-                    const width = (note.duration / (lengthBars * 16)) * 100;
-                    return <div key={idx} className="absolute h-2 lg:h-3 rounded-sm bg-indigo-500 border border-indigo-300/50" style={{ top: `${top}%`, left: `${left}%`, width: `${width}%` }} />;
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
           
           {activeTab === 'chords' && (
             <div className="flex flex-col h-full overflow-hidden">
@@ -527,45 +468,17 @@ const App = () => {
         <div className="px-4 mt-8 space-y-8">
           {activeTab === 'drums' && (
             <div className="pt-6 border-t border-gray-800/50">
-              <h2 className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-4">Options Batterie</h2>
-              <Select label="Mesures" value={drumBars} options={[1, 2, 4]} onChange={(v:any) => setDrumBars(Number(v))} />
-              <Button variant="danger" className="w-full mt-2" icon={Trash2} onClick={() => setDrumGrid(DRUM_TRACKS.map(() => Array(drumBars * 16).fill(false)))}>Réinitialiser</Button>
-            </div>
-          )}
-
-          {activeTab === 'pattern' && (
-            <div className="pt-6 border-t border-gray-800/50 space-y-4">
-              <h2 className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-4">Paramètres Motifs</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <Select label="Style" value={style} options={['Lo-Fi', 'Jazz', 'Pop', 'Funk']} onChange={setStyle} />
-                <Select label="Instrument" value={instrument} options={['Basse', 'Lead / Mélodie']} onChange={setInstrument} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Select label="Tonalité" value={keyRoot} options={NOTES_NAMES} onChange={setKeyRoot} />
-                <Select label="Mesures" value={lengthBars} options={[1, 2, 4]} onChange={(v:any) => setLengthBars(Number(v))} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase font-bold text-gray-500">Densité: {density}%</label>
-                <Slider value={density} min={10} max={100} onChange={setDensity} />
-              </div>
-              <Button onClick={generatePatternLogic} variant="accent" className="w-full" icon={RefreshCw}>Régénérer le Motif</Button>
+              <h2 className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-4">Actions Batterie</h2>
+              <Button variant="danger" className="w-full mt-2" icon={Trash2} onClick={() => setDrumGrid(DRUM_TRACKS.map(() => Array(drumBars * 16).fill(false)))}>Réinitialiser la Grille</Button>
             </div>
           )}
 
           {activeTab === 'chords' && (
             <div className="pt-6 border-t border-gray-800/50">
-              <h2 className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-4">Ajouter un accord</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <Select label="Fondamentale" value={newChordRoot} options={NOTES_NAMES} onChange={setNewChordRoot} />
-                <Select label="Type" value={newChordType} options={Object.keys(CHORD_TYPES)} onChange={setNewChordType} />
-              </div>
-              <Button onClick={() => setChordProgression([...chordProgression, { id: Date.now(), root: newChordRoot, type: newChordType, name: `${newChordRoot} ${newChordType}` }])} variant="success" className="w-full mt-2" icon={Plus}>Ajouter</Button>
+              <h2 className="text-[11px] font-black text-gray-500 uppercase tracking-widest mb-4">Actions Accords</h2>
+              <Button variant="danger" className="w-full" icon={Trash2} onClick={() => setChordProgression([])}>Effacer toute la progression</Button>
             </div>
           )}
-
-          <div className="pt-4">
-            <Button variant="secondary" className="w-full bg-[#1a212c] text-white py-4" icon={Download}>Exporter en MIDI</Button>
-          </div>
         </div>
       </main>
     </div>
