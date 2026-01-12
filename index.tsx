@@ -8,6 +8,126 @@ import {
 
 /**
  * ==========================================
+ * UTILITAIRES MIDI (Mini Writer)
+ * ==========================================
+ */
+
+class MidiWriter {
+  // Convertit un nombre en Variable Length Quantity (VLQ) MIDI
+  static toVLQ(n: number): number[] {
+    let buffer = [n & 0x7f];
+    while (n >>= 7) buffer.push((n & 0x7f) | 0x80);
+    return buffer.reverse();
+  }
+
+  static createMidiFile(tempo: number, drumGrid: boolean[][], chords: ChordItem[]) {
+    const ticksPerQuarter = 480;
+    const ticksPerStep = ticksPerQuarter / 4; // 1/16 note
+
+    // Header Chunk
+    const header = [
+      0x4d, 0x54, 0x68, 0x64, // "MThd"
+      0x00, 0x00, 0x00, 0x06, // Length
+      0x00, 0x01,             // Format 1 (Multiple tracks)
+      0x00, 0x02,             // 2 Tracks (1 Tempo/Drums, 1 Chords)
+      (ticksPerQuarter >> 8) & 0xff, ticksPerQuarter & 0xff
+    ];
+
+    // Track 1: Tempo & Drums (Channel 10)
+    let drumEvents: number[] = [];
+    const microsecondsPerQuarter = Math.round(60000000 / tempo);
+    
+    // Set Tempo Meta Event
+    drumEvents.push(0x00, 0xff, 0x51, 0x03, 
+      (microsecondsPerQuarter >> 16) & 0xff, 
+      (microsecondsPerQuarter >> 8) & 0xff, 
+      microsecondsPerQuarter & 0xff
+    );
+
+    // Write Drum Notes
+    let lastTick = 0;
+    const drumNotesEvents: {tick: number, status: number, data: number[]}[] = [];
+
+    drumGrid.forEach((track, trackIdx) => {
+      const midiNote = DRUM_TRACKS[trackIdx].midiNote;
+      track.forEach((active, stepIdx) => {
+        if (active) {
+          const startTick = stepIdx * ticksPerStep;
+          const endTick = startTick + (ticksPerStep - 1);
+          drumNotesEvents.push({ tick: startTick, status: 0x99, data: [midiNote, 0x64] });
+          drumNotesEvents.push({ tick: endTick, status: 0x89, data: [midiNote, 0x00] });
+        }
+      });
+    });
+
+    drumNotesEvents.sort((a, b) => a.tick - b.tick);
+    drumNotesEvents.forEach(e => {
+      const delta = e.tick - lastTick;
+      drumEvents.push(...this.toVLQ(delta));
+      drumEvents.push(e.status, ...e.data);
+      lastTick = e.tick;
+    });
+    drumEvents.push(0x00, 0xff, 0x2f, 0x00); // End of Track
+
+    const drumTrack = [
+      0x4d, 0x54, 0x72, 0x6b,
+      ...this.int32ToBytes(drumEvents.length),
+      ...drumEvents
+    ];
+
+    // Track 2: Chords (Channel 1)
+    let chordEvents: number[] = [];
+    let lastChordTick = 0;
+    const chordNotesEvents: {tick: number, status: number, data: number[]}[] = [];
+
+    chords.forEach((chord, idx) => {
+      const rootIdx = NOTES_NAMES.indexOf(chord.root);
+      const basePitch = 60 + rootIdx;
+      const intervals = CHORD_TYPES[chord.type];
+      const startTick = idx * (ticksPerStep * 16);
+      const endTick = startTick + (ticksPerStep * 16) - 1;
+
+      intervals.forEach(interval => {
+        chordNotesEvents.push({ tick: startTick, status: 0x90, data: [basePitch + interval, 0x50] });
+        chordNotesEvents.push({ tick: endTick, status: 0x80, data: [basePitch + interval, 0x00] });
+      });
+    });
+
+    chordNotesEvents.sort((a, b) => a.tick - b.tick);
+    chordNotesEvents.forEach(e => {
+      const delta = e.tick - lastChordTick;
+      chordEvents.push(...this.toVLQ(delta));
+      chordEvents.push(e.status, ...e.data);
+      lastChordTick = e.tick;
+    });
+    chordEvents.push(0x00, 0xff, 0x2f, 0x00);
+
+    const chordTrack = [
+      0x4d, 0x54, 0x72, 0x6b,
+      ...this.int32ToBytes(chordEvents.length),
+      ...chordEvents
+    ];
+
+    return new Uint8Array([...header, ...drumTrack, ...chordTrack]);
+  }
+
+  static int32ToBytes(n: number) {
+    return [(n >> 24) & 0xff, (n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+  }
+
+  static download(data: Uint8Array, filename: string) {
+    const blob = new Blob([data], { type: 'audio/midi' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * ==========================================
  * UTILITAIRES : TYPES & CONSTANTES
  * ==========================================
  */
@@ -249,6 +369,15 @@ const App = () => {
     } else setIsPlaying(false);
   };
 
+  const handleExportMidi = () => {
+    try {
+      const midiData = MidiWriter.createMidiFile(tempo, drumGrid, chordProgression);
+      MidiWriter.download(midiData, `pattern-lab-${Date.now()}.mid`);
+    } catch (error) {
+      console.error("Export MIDI failed", error);
+    }
+  };
+
   const scheduler = useCallback(() => {
     if (!audio.ctx) return;
     const secondsPerStep = (60.0 / tempoRef.current) / 4;
@@ -339,6 +468,7 @@ const App = () => {
                 variant="secondary" 
                 className="w-full bg-[#1a212c] text-white py-3.5 border border-gray-700/30 hover:border-cyan-500/30 transition-colors" 
                 icon={Download}
+                onClick={handleExportMidi}
               >
                 Exporter en MIDI
               </Button>
